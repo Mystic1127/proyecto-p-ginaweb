@@ -1,0 +1,44 @@
+{
+  "name": "pet-salud-backend",
+  "version": "1.0.0",
+  "description": "Backend del sistema PetSalud con Express, MySQL y JWT",
+  "type": "commonjs",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "test": "cross-env NODE_ENV=test jest --runInBand",
+    "test:watch": "cross-env NODE_ENV=test jest --watch",
+    "test:cov": "cross-env NODE_ENV=test jest --runInBand --coverage",
+    "sonar": "sonar-scanner"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "collectCoverage": true,
+    "coverageDirectory": "coverage",
+    "coverageReporters": ["lcov", "text-summary"],
+    "testMatch": ["**/__tests__/**/*.js", "**/?(*.)+(spec|test).js"],
+    "moduleFileExtensions": ["js", "json"]
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.15.3",
+    "nodemailer": "^7.0.10",
+    "pdfkit": "^0.17.2",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "jest": "^29.7.0",
+    "sonarqube-scanner": "^3.5.0",
+    "supertest": "^7.1.4"
+  },
+  "keywords": ["express", "mysql", "jwt", "sonarqube", "jest", "api"],
+  "author": "Alejandro",
+  "license": "ISC"
+}

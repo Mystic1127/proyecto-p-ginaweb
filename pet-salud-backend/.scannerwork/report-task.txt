@@ -1,0 +1,6 @@
+projectKey=petsalud-backend
+serverUrl=http://localhost:9000
+serverVersion=25.10.0.114319
+dashboardUrl=http://localhost:9000/dashboard?id=petsalud-backend
+ceTaskId=09e2604d-8be4-4159-9851-f6282a23744a
+ceTaskUrl=http://localhost:9000/api/ce/task?id=09e2604d-8be4-4159-9851-f6282a23744a
