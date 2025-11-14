@@ -1,15 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { getAuth, clearAuth, type AuthData } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
-import { 
-  Calendar, 
-  PawPrint, 
-  Plus, 
-  Clock, 
+import {
+  Calendar,
+  PawPrint,
+  Plus,
+  Clock,
   AlertCircle,
   CheckCircle,
   Stethoscope,
@@ -18,7 +18,14 @@ import {
   Users,
   LogOut,
   List,
-  Eye
+  Eye,
+  FlaskConical,
+  TestTube,
+  Microscope,
+  ClipboardList,
+  Beaker,
+  Droplet,
+  ClipboardCheck
 } from 'lucide-react';
 
 type Cita = {
@@ -30,6 +37,17 @@ type Cita = {
   dueno_nombres?: string;
   dueno_apellidos?: string;
   veterinario_usuario?: string;
+};
+
+type LabOrder = {
+  id_orden: number;
+  tipo_examen: string;
+  estado: 'EMITIDA' | 'MUESTRA_TOMADA' | 'RESULTADO_REGISTRADO' | 'VALIDADA' | 'ANULADA';
+  creado_en: string;
+  nombre_mascota?: string;
+  observaciones?: string | null;
+  dueno?: string;
+  dueno_ap?: string;
 };
 
 function DuenoDashboard({ auth }: { auth: AuthData }) {
@@ -117,6 +135,13 @@ function DuenoDashboard({ auth }: { auth: AuthData }) {
               <p className="text-sm text-gray-600 mt-1">Gestiona tus mascotas y citas</p>
             </div>
             <div className="flex space-x-3">
+              <button
+                onClick={() => router.push('/lab')}
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+              >
+                <FlaskConical className="w-4 h-4 mr-2" />
+                Laboratorio
+              </button>
               <button
                 onClick={() => { clearAuth(); router.push('/login'); }}
                 className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
@@ -524,8 +549,8 @@ function VeterinarioDashboard({ auth }: { auth: AuthData }) {
             <Activity className="w-5 h-5 text-green-600" />
             <h2 className="text-lg font-semibold text-gray-900">Acciones Rápidas</h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <button 
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <button
               onClick={() => router.push('/vet/citas')}
               className="flex items-center justify-center px-4 py-3 bg-white rounded-lg border border-gray-200 hover:shadow-md transition-all text-left"
             >
@@ -545,7 +570,7 @@ function VeterinarioDashboard({ auth }: { auth: AuthData }) {
                 <p className="text-xs text-gray-600">Historial clínico</p>
               </div>
             </button>
-            <button 
+            <button
               onClick={() => router.push('/vet/estadisticas')}
               className="flex items-center justify-center px-4 py-3 bg-white rounded-lg border border-gray-200 hover:shadow-md transition-all text-left"
             >
@@ -553,6 +578,16 @@ function VeterinarioDashboard({ auth }: { auth: AuthData }) {
               <div className="flex-1">
                 <p className="text-sm font-semibold text-gray-900">Estadísticas</p>
                 <p className="text-xs text-gray-600">Reportes y métricas</p>
+              </div>
+            </button>
+            <button
+              onClick={() => router.push('/lab/nueva')}
+              className="flex items-center justify-center px-4 py-3 bg-white rounded-lg border border-gray-200 hover:shadow-md transition-all text-left"
+            >
+              <FlaskConical className="w-5 h-5 mr-3 text-cyan-600" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-gray-900">Orden de laboratorio</p>
+                <p className="text-xs text-gray-600">Solicitar análisis y delegar al técnico</p>
               </div>
             </button>
           </div>
@@ -649,6 +684,279 @@ function VeterinarioDashboard({ auth }: { auth: AuthData }) {
   );
 }
 
+function TecnicoDashboard({ auth }: { auth: AuthData }) {
+  const router = useRouter();
+  const [orders, setOrders] = useState<LabOrder[]>([]);
+  const [citas, setCitas] = useState<Cita[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [ordersData, citasData] = await Promise.all([
+          apiFetch<LabOrder[]>('/lab/ordenes', { token: auth.token }),
+          apiFetch<Cita[]>('/citas', { token: auth.token }).catch(() => []),
+        ]);
+
+        setOrders(Array.isArray(ordersData) ? ordersData : []);
+        setCitas(Array.isArray(citasData) ? citasData : []);
+      } catch (err) {
+        console.error('Error al cargar datos de laboratorio:', err);
+        setError(err instanceof Error ? err.message : 'No se pudo obtener la información');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [auth.token]);
+
+  const pendingSample = orders.filter((o) => o.estado === 'EMITIDA');
+  const pendingResults = orders.filter((o) => o.estado === 'MUESTRA_TOMADA');
+  const awaitingValidation = orders.filter((o) => o.estado === 'RESULTADO_REGISTRADO');
+  const validated = orders.filter((o) => o.estado === 'VALIDADA');
+
+  const confirmedToday = useMemo(() => {
+    const today = new Date();
+    const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+
+    return citas
+      .filter((cita) => {
+        const date = new Date(cita.fecha_hora.replace(' ', 'T'));
+        return cita.estado === 'CONFIRMADA' && date >= start && date < end;
+      })
+      .slice(0, 4);
+  }, [citas]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Preparando tu tablero de laboratorio...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="bg-white border-b border-gray-200 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-linear-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                <FlaskConical className="w-7 h-7 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Panel Técnico de Laboratorio</h1>
+                <p className="text-sm text-gray-600 mt-1">Administra órdenes, muestras y resultados asignados</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => router.push('/lab')}
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm"
+              >
+                <Beaker className="w-4 h-4 mr-2" />
+                Ver órdenes
+              </button>
+              <button
+                onClick={() => { clearAuth(); router.push('/login'); }}
+                className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors shadow-sm"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Cerrar sesión
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Órdenes asignadas</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{orders.length}</p>
+                <p className="text-xs text-gray-500 mt-1">Validadas: {validated.length}</p>
+              </div>
+              <ClipboardList className="w-6 h-6 text-cyan-600" />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Pendientes de muestra</p>
+                <p className="text-3xl font-bold text-amber-600 mt-2">{pendingSample.length}</p>
+                <p className="text-xs text-gray-500 mt-1">Confirma citas y prepara materiales</p>
+              </div>
+              <Droplet className="w-6 h-6 text-amber-500" />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Resultados por cargar</p>
+                <p className="text-3xl font-bold text-blue-600 mt-2">{pendingResults.length}</p>
+                <p className="text-xs text-gray-500 mt-1">Tras la toma, ingresa los análisis</p>
+              </div>
+              <TestTube className="w-6 h-6 text-blue-500" />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Esperando validación</p>
+                <p className="text-3xl font-bold text-purple-600 mt-2">{awaitingValidation.length}</p>
+                <p className="text-xs text-gray-500 mt-1">Comparte avances con el veterinario</p>
+              </div>
+              <ClipboardCheck className="w-6 h-6 text-purple-500" />
+            </div>
+          </div>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl p-4 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 mt-0.5" />
+            <div>
+              <p className="font-semibold">No fue posible sincronizar algunas secciones</p>
+              <p>{error}</p>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <Droplet className="w-5 h-5 text-amber-500" />
+                <h2 className="text-lg font-semibold text-gray-900">Órdenes para toma de muestra</h2>
+              </div>
+              <button
+                onClick={() => router.push('/lab')}
+                className="text-sm text-cyan-600 hover:text-cyan-700 font-medium"
+              >
+                Ver todas →
+              </button>
+            </div>
+            {pendingSample.length === 0 ? (
+              <p className="text-sm text-gray-500">No tienes órdenes pendientes de toma. Revisa más tarde.</p>
+            ) : (
+              <ul className="space-y-3">
+                {pendingSample.slice(0, 5).map((order) => (
+                  <li
+                    key={order.id_orden}
+                    className="p-4 border border-gray-200 rounded-lg hover:shadow-md hover:border-gray-300 transition cursor-pointer"
+                    onClick={() => router.push(`/lab/${order.id_orden}`)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold text-gray-900">#{order.id_orden} · {order.nombre_mascota ?? 'Mascota sin nombre'}</p>
+                        <p className="text-sm text-gray-600">{order.tipo_examen}</p>
+                      </div>
+                      <span className="text-xs text-gray-500">
+                        Emitida el {new Date(order.creado_en).toLocaleDateString('es-PE', { month: 'short', day: 'numeric' })}
+                      </span>
+                    </div>
+                    {order.observaciones && (
+                      <p className="mt-2 text-xs text-gray-500 line-clamp-2">Observaciones: {order.observaciones}</p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <Microscope className="w-5 h-5 text-blue-500" />
+                <h2 className="text-lg font-semibold text-gray-900">Resultados en preparación</h2>
+              </div>
+            </div>
+            {pendingResults.length === 0 ? (
+              <p className="text-sm text-gray-500">Cuando registres la toma, podrás cargar los resultados aquí.</p>
+            ) : (
+              <ul className="space-y-3">
+                {pendingResults.slice(0, 5).map((order) => (
+                  <li
+                    key={order.id_orden}
+                    className="p-4 border border-gray-200 rounded-lg hover:shadow-md hover:border-gray-300 transition cursor-pointer"
+                    onClick={() => router.push(`/lab/${order.id_orden}`)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold text-gray-900">#{order.id_orden} · {order.nombre_mascota ?? 'Mascota sin nombre'}</p>
+                        <p className="text-sm text-gray-600">{order.tipo_examen}</p>
+                      </div>
+                      <span className="text-xs text-gray-500">Actualizada el {new Date(order.creado_en).toLocaleDateString('es-PE', { month: 'short', day: 'numeric' })}</span>
+                    </div>
+                    <p className="mt-2 text-xs text-gray-500">
+                      Toma registrada. Ingresa los valores del análisis cuando estén listos.
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
+
+        <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+          <div className="flex items-center gap-3 mb-4">
+            <Calendar className="w-5 h-5 text-cyan-600" />
+            <h2 className="text-lg font-semibold text-gray-900">Citas confirmadas para hoy</h2>
+          </div>
+          {confirmedToday.length === 0 ? (
+            <p className="text-sm text-gray-500">No hay citas confirmadas para hoy que requieran apoyo de laboratorio.</p>
+          ) : (
+            <ul className="space-y-3">
+              {confirmedToday.map((cita) => (
+                <li key={cita.id_cita} className="p-4 border border-gray-200 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-gray-900">{cita.mascota_nombre}</p>
+                      <p className="text-sm text-gray-600">Dueño: {cita.dueno_nombres} {cita.dueno_apellidos}</p>
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      {new Date(cita.fecha_hora.replace(' ', 'T')).toLocaleTimeString('es-PE', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs text-gray-500">
+                    Coordina con el veterinario si se requiere una orden de laboratorio posterior a la consulta.
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="bg-cyan-50 border border-cyan-200 rounded-xl p-5 flex items-start gap-3 text-cyan-800">
+          <FlaskConical className="w-5 h-5 mt-0.5" />
+          <div>
+            <p className="font-semibold">Flujo recomendado</p>
+            <ul className="text-sm list-disc ml-4 space-y-1">
+              <li>Al confirmarse la cita, prepara el material necesario y verifica si habrá toma de muestra.</li>
+              <li>Tras registrar la muestra en el sistema, carga los resultados lo antes posible.</li>
+              <li>Notifica al veterinario cuando los valores estén listos para acelerar la validación.</li>
+            </ul>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [auth, setAuth] = useState<AuthData | null>(null);
@@ -699,6 +1007,10 @@ export default function DashboardPage() {
 
   if (auth.rol === 'VETERINARIO') {
     return <VeterinarioDashboard auth={auth} />;
+  }
+
+  if (auth.rol === 'TECNICO') {
+    return <TecnicoDashboard auth={auth} />;
   }
 
   return (
