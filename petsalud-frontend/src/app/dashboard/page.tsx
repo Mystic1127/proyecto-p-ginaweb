@@ -1356,6 +1356,30 @@ function AdminDashboard({ auth }: { auth: AuthData }) {
               <Users className="h-4 w-4" />
               Dueños
             </button>
+            <button
+              onClick={() => router.push('/admin/staff/list')}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              <List className="h-4 w-4" />
+              Personal
+            </button>
+            <button
+              onClick={() => router.push('/admin/staff/new')}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              <UserPlus className="h-4 w-4" />
+              Crear personal
+            </button>
+            <button
+              onClick={() => {
+                clearAuth();
+                router.push('/login');
+              }}
+              className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-100"
+            >
+              <LogOut className="h-4 w-4" />
+              Cerrar sesión
+            </button>
           </div>
         </div>
       </div>
