@@ -14,6 +14,7 @@ import {
   Loader2,
   Microscope,
   TestTube,
+  Receipt,
 } from 'lucide-react';
 
 type LabOrderDetail = {
@@ -86,6 +87,7 @@ export default function LabOrderDetailPage() {
   const [sampleState, setSampleState] = useState<ActionState>(INITIAL_ACTION_STATE);
   const [resultState, setResultState] = useState<ActionState>(INITIAL_ACTION_STATE);
   const [validateState, setValidateState] = useState<ActionState>(INITIAL_ACTION_STATE);
+  const [invoiceState, setInvoiceState] = useState<ActionState>(INITIAL_ACTION_STATE);
 
   const [sampleForm, setSampleForm] = useState({ tipo_muestra: '', fecha_hora: '', notas: '' });
   const [resultForm, setResultForm] = useState({ descripcion: '', valores: '', conclusiones: '' });
@@ -144,6 +146,7 @@ export default function LabOrderDetailPage() {
     order?.estado === 'RESULTADO_REGISTRADO' && (isAdmin || (isVeterinario && assignedToMe));
   const canTakeSample = isTecnico || isVeterinario || isAdmin;
   const canUploadResult = (isTecnico || isAdmin) && order?.estado !== 'VALIDADA' && order?.estado !== 'ANULADA';
+  const isBillingRole = isAdmin || auth?.rol === 'RECEPCIONISTA';
 
   const timeline = useMemo(() => {
     if (!order) return [];
@@ -265,6 +268,21 @@ export default function LabOrderDetailPage() {
         success: null,
         error: err instanceof Error ? err.message : 'No se pudo validar el informe',
       });
+    }
+  };
+
+  const handleInvoiceGenerate = async () => {
+    if (!auth?.token || !params?.id) return;
+    setInvoiceState({ loading: true, success: null, error: null });
+    try {
+      await apiFetch(`/facturas/hook/orden/${params.id}`, {
+        method: 'POST',
+        token: auth.token,
+      });
+      setInvoiceState({ loading: false, success: 'Factura generada correctamente.', error: null });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'No se pudo generar la factura';
+      setInvoiceState({ loading: false, success: null, error: message });
     }
   };
 
@@ -573,6 +591,25 @@ export default function LabOrderDetailPage() {
                     <FileText className="w-4 h-4 mr-2" />
                     Descargar informe validado
                   </a>
+                  {isBillingRole && (
+                    <div className="mt-4 space-y-2">
+                      <button
+                        onClick={handleInvoiceGenerate}
+                        disabled={invoiceState.loading}
+                        className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
+                      >
+                        {invoiceState.loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                        <Receipt className="h-4 w-4" />
+                        Generar factura desde esta orden
+                      </button>
+                      {invoiceState.error && (
+                        <p className="text-xs text-red-600">{invoiceState.error}</p>
+                      )}
+                      {invoiceState.success && (
+                        <p className="text-xs text-emerald-700">{invoiceState.success}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </section>
             )}

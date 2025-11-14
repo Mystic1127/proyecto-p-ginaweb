@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { getAuth, clearAuth, type AuthData } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
 import {
@@ -25,7 +24,14 @@ import {
   ClipboardList,
   Beaker,
   Droplet,
-  ClipboardCheck
+  ClipboardCheck,
+  Receipt,
+  BarChart3,
+  UserPlus,
+  UserCog,
+  Building2,
+  ClipboardSignature,
+  Loader2
 } from 'lucide-react';
 
 type Cita = {
@@ -50,6 +56,22 @@ type LabOrder = {
   observaciones?: string | null;
   dueno?: string;
   dueno_ap?: string;
+};
+
+type FacturaResumen = {
+  id_factura: number;
+  estado: 'PENDIENTE' | 'PAGADA' | 'ANULADA';
+  monto_total?: number | null;
+  fecha_emision: string;
+  id_cita?: number | null;
+  id_orden?: number | null;
+};
+
+type DuenoResumen = {
+  id_dueno: number;
+  nombres?: string | null;
+  apellidos?: string | null;
+  telefono?: string | null;
 };
 
 function DuenoDashboard({ auth }: { auth: AuthData }) {
@@ -136,7 +158,14 @@ function DuenoDashboard({ auth }: { auth: AuthData }) {
               <h1 className="text-2xl font-bold text-gray-900">Bienvenido</h1>
               <p className="text-sm text-gray-600 mt-1">Gestiona tus mascotas y citas</p>
             </div>
-            <div className="flex space-x-3">
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={() => router.push('/facturas')}
+                className="inline-flex items-center px-4 py-2 bg-white border border-gray-200 text-gray-800 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+              >
+                <Receipt className="w-4 h-4 mr-2 text-gray-600" />
+                Facturas
+              </button>
               <button
                 onClick={() => router.push('/lab')}
                 className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
@@ -1055,6 +1084,378 @@ function TecnicoDashboard({ auth }: { auth: AuthData }) {
   );
 }
 
+function RecepcionistaDashboard({ auth }: { auth: AuthData }) {
+  const router = useRouter();
+  const [facturas, setFacturas] = useState<FacturaResumen[]>([]);
+  const [citas, setCitas] = useState<Cita[]>([]);
+  const [duenos, setDuenos] = useState<DuenoResumen[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [factData, citasData, duenosData] = await Promise.all([
+          apiFetch<FacturaResumen[]>('/facturas', { token: auth.token }),
+          apiFetch<Cita[]>('/citas', { token: auth.token }),
+          apiFetch<DuenoResumen[]>('/duenos', { token: auth.token }).catch(() => []),
+        ]);
+        setFacturas(Array.isArray(factData) ? factData : []);
+        setCitas(Array.isArray(citasData) ? citasData : []);
+        setDuenos(Array.isArray(duenosData) ? duenosData : []);
+      } catch (error) {
+        console.error('Error al cargar dashboard de recepción', error);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [auth.token]);
+
+  const pendientes = useMemo(
+    () => facturas.filter((f) => f.estado === 'PENDIENTE').slice(0, 5),
+    [facturas]
+  );
+
+  const proximasCitas = useMemo(() => {
+    return citas
+      .filter((c) => ['PROGRAMADA', 'CONFIRMADA'].includes(c.estado))
+      .sort((a, b) => new Date(a.fecha_hora).getTime() - new Date(b.fecha_hora).getTime())
+      .slice(0, 5);
+  }, [citas]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="border-b border-gray-200 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-blue-100 p-3 text-blue-600">
+              <Building2 className="h-6 w-6" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Panel de recepción</h1>
+              <p className="text-sm text-gray-600">
+                Gestiona el flujo diario de citas, cobros y registro de nuevos propietarios.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => router.push('/admin/duenos/nuevo')}
+              className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800"
+            >
+              <UserPlus className="h-4 w-4" />
+              Nuevo dueño
+            </button>
+            <button
+              onClick={() => router.push('/facturas')}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              <Receipt className="h-4 w-4" />
+              Ver facturas
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl border border-blue-200 bg-blue-50 p-5 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-800">Citas hoy</p>
+            <p className="mt-2 text-2xl font-bold text-blue-900">
+              {citas.filter((c) => {
+                const fecha = new Date(c.fecha_hora.replace(' ', 'T'));
+                const hoy = new Date();
+                return (
+                  fecha.getFullYear() === hoy.getFullYear() &&
+                  fecha.getMonth() === hoy.getMonth() &&
+                  fecha.getDate() === hoy.getDate()
+                );
+              }).length}
+            </p>
+            <p className="text-xs text-blue-700">Programadas y confirmadas</p>
+          </div>
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">Facturas pendientes</p>
+            <p className="mt-2 text-2xl font-bold text-amber-900">{facturas.filter((f) => f.estado === 'PENDIENTE').length}</p>
+            <p className="text-xs text-amber-700">Cobros por cerrar</p>
+          </div>
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Dueños activos</p>
+            <p className="mt-2 text-2xl font-bold text-emerald-900">{duenos.length}</p>
+            <p className="text-xs text-emerald-700">Clientes registrados</p>
+          </div>
+          <div className="rounded-xl border border-purple-200 bg-purple-50 p-5 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wide text-purple-800">Atenciones confirmadas</p>
+            <p className="mt-2 text-2xl font-bold text-purple-900">{citas.filter((c) => c.estado === 'CONFIRMADA').length}</p>
+            <p className="text-xs text-purple-700">Listas para recibir</p>
+          </div>
+        </section>
+
+        <section className="grid gap-6 lg:grid-cols-2">
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">Facturas pendientes</h2>
+              <button
+                onClick={() => router.push('/facturas')}
+                className="text-sm font-medium text-blue-600 hover:text-blue-700"
+              >
+                Ver todas
+              </button>
+            </div>
+            <div className="mt-4 space-y-3">
+              {pendientes.length === 0 ? (
+                <p className="text-sm text-gray-500">No hay cobros pendientes por registrar.</p>
+              ) : (
+                pendientes.map((f) => (
+                  <div key={f.id_factura} className="flex items-center justify-between rounded-lg border border-amber-100 bg-amber-50 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-semibold text-amber-900">Factura #{f.id_factura}</p>
+                      <p className="text-xs text-amber-700">Emitida {new Date(f.fecha_emision).toLocaleDateString('es-PE')}</p>
+                    </div>
+                    <p className="text-sm font-semibold text-amber-900">S/ {Number(f.monto_total ?? 0).toLocaleString('es-PE')}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">Próximas citas</h2>
+              <button
+                onClick={() => router.push('/citas')}
+                className="text-sm font-medium text-blue-600 hover:text-blue-700"
+              >
+                Ver agenda
+              </button>
+            </div>
+            <div className="mt-4 space-y-3">
+              {proximasCitas.length === 0 ? (
+                <p className="text-sm text-gray-500">No hay citas próximas en el calendario.</p>
+              ) : (
+                proximasCitas.map((cita) => (
+                  <div key={cita.id_cita} className="flex items-center justify-between rounded-lg border border-blue-100 bg-blue-50 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-semibold text-blue-900">Cita #{cita.id_cita}</p>
+                      <p className="text-xs text-blue-700">{new Date(cita.fecha_hora.replace(' ', 'T')).toLocaleString('es-PE')}</p>
+                    </div>
+                    <span className="text-xs font-semibold text-blue-900">{cita.estado}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Últimos dueños registrados</h2>
+          <div className="space-y-3">
+            {duenos.slice(0, 5).map((dueno) => (
+              <div key={dueno.id_dueno} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">{dueno.nombres} {dueno.apellidos}</p>
+                  <p className="text-xs text-gray-500">Teléfono: {dueno.telefono || '—'}</p>
+                </div>
+                <button
+                  onClick={() => router.push(`/admin/duenos/${dueno.id_dueno}`)}
+                  className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                >
+                  Ver ficha
+                </button>
+              </div>
+            ))}
+            {duenos.length === 0 && <p className="text-sm text-gray-500">Aún no se registran propietarios.</p>}
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}
+
+function AdminDashboard({ auth }: { auth: AuthData }) {
+  const router = useRouter();
+  const [facturas, setFacturas] = useState<FacturaResumen[]>([]);
+  const [duenos, setDuenos] = useState<DuenoResumen[]>([]);
+  const [citas, setCitas] = useState<Cita[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [factData, duenosData, citasData] = await Promise.all([
+          apiFetch<FacturaResumen[]>('/facturas', { token: auth.token }),
+          apiFetch<DuenoResumen[]>('/duenos', { token: auth.token }).catch(() => []),
+          apiFetch<Cita[]>('/citas', { token: auth.token }),
+        ]);
+        setFacturas(Array.isArray(factData) ? factData : []);
+        setDuenos(Array.isArray(duenosData) ? duenosData : []);
+        setCitas(Array.isArray(citasData) ? citasData : []);
+      } catch (error) {
+        console.error('Error al cargar dashboard de administración', error);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [auth.token]);
+
+  const montoPagado = facturas
+    .filter((f) => f.estado === 'PAGADA')
+    .reduce((sum, f) => sum + Number(f.monto_total ?? 0), 0);
+
+  const pendientes = facturas.filter((f) => f.estado === 'PENDIENTE');
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="border-b border-gray-200 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-gray-900 p-3 text-white">
+              <UserCog className="h-6 w-6" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Panel administrativo</h1>
+              <p className="text-sm text-gray-600">
+                Supervisa ingresos, cartera de clientes y asigna tareas clave al equipo.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => router.push('/admin/reportes')}
+              className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800"
+            >
+              <BarChart3 className="h-4 w-4" />
+              Ver reportes
+            </button>
+            <button
+              onClick={() => router.push('/facturas')}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              <Receipt className="h-4 w-4" />
+              Facturación
+            </button>
+            <button
+              onClick={() => router.push('/admin/duenos')}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              <Users className="h-4 w-4" />
+              Dueños
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Ingresos cobrados</p>
+            <p className="mt-2 text-2xl font-bold text-emerald-900">S/ {montoPagado.toLocaleString('es-PE')}</p>
+            <p className="text-xs text-emerald-700">Facturas pagadas</p>
+          </div>
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">Facturas pendientes</p>
+            <p className="mt-2 text-2xl font-bold text-amber-900">{pendientes.length}</p>
+            <p className="text-xs text-amber-700">Requieren seguimiento</p>
+          </div>
+          <div className="rounded-xl border border-blue-200 bg-blue-50 p-5 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-800">Dueños registrados</p>
+            <p className="mt-2 text-2xl font-bold text-blue-900">{duenos.length}</p>
+            <p className="text-xs text-blue-700">Clientes activos</p>
+          </div>
+          <div className="rounded-xl border border-purple-200 bg-purple-50 p-5 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wide text-purple-800">Citas confirmadas</p>
+            <p className="mt-2 text-2xl font-bold text-purple-900">{citas.filter((c) => c.estado === 'CONFIRMADA').length}</p>
+            <p className="text-xs text-purple-700">Agenda asegurada</p>
+          </div>
+        </section>
+
+        <section className="grid gap-6 lg:grid-cols-2">
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">Cobros pendientes</h2>
+              <button
+                onClick={() => router.push('/facturas')}
+                className="text-sm font-medium text-blue-600 hover:text-blue-700"
+              >
+                Revisar
+              </button>
+            </div>
+            <div className="mt-4 space-y-3">
+              {pendientes.slice(0, 5).map((f) => (
+                <div key={f.id_factura} className="flex items-center justify-between rounded-lg border border-amber-100 bg-amber-50 px-4 py-3">
+                  <div>
+                    <p className="text-sm font-semibold text-amber-900">Factura #{f.id_factura}</p>
+                    <p className="text-xs text-amber-700">Emitida {new Date(f.fecha_emision).toLocaleDateString('es-PE')}</p>
+                  </div>
+                  <p className="text-sm font-semibold text-amber-900">S/ {Number(f.monto_total ?? 0).toLocaleString('es-PE')}</p>
+                </div>
+              ))}
+              {pendientes.length === 0 && <p className="text-sm text-gray-500">No hay facturas pendientes.</p>}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">Indicadores rápidos</h2>
+              <button
+                onClick={() => router.push('/admin/reportes')}
+                className="text-sm font-medium text-blue-600 hover:text-blue-700"
+              >
+                Ver más
+              </button>
+            </div>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <p className="text-xs uppercase tracking-wide text-gray-500">Citas totales</p>
+                <p className="text-2xl font-semibold text-gray-900">{citas.length}</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <p className="text-xs uppercase tracking-wide text-gray-500">Citas atendidas</p>
+                <p className="text-2xl font-semibold text-gray-900">{citas.filter((c) => c.estado === 'ATENDIDA').length}</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <p className="text-xs uppercase tracking-wide text-gray-500">Facturas generadas</p>
+                <p className="text-2xl font-semibold text-gray-900">{facturas.length}</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <p className="text-xs uppercase tracking-wide text-gray-500">Ordenes facturadas</p>
+                <p className="text-2xl font-semibold text-gray-900">{facturas.filter((f) => f.id_orden).length}</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">Acciones recomendadas</h2>
+            <ClipboardSignature className="h-5 w-5 text-gray-500" />
+          </div>
+          <ul className="mt-4 space-y-2 text-sm text-gray-700">
+            <li>• Revisar facturas pendientes para cerrar caja diaria.</li>
+            <li>• Coordinar con recepción el seguimiento de citas canceladas.</li>
+            <li>• Validar que los dueños recién registrados tengan mascotas asociadas.</li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [auth, setAuth] = useState<AuthData | null>(null);
@@ -1111,43 +1512,13 @@ export default function DashboardPage() {
     return <TecnicoDashboard auth={auth} />;
   }
 
-  return (
-    <main className="min-h-screen p-6 space-y-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Panel</h1>
-        <button
-          onClick={() => { clearAuth(); router.push('/login'); }}
-          className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
-        >
-          Cerrar sesión
-        </button>
-      </header>
+  if (auth.rol === 'RECEPCIONISTA') {
+    return <RecepcionistaDashboard auth={auth} />;
+  }
 
-      <section className="space-y-2">
-        <p className="text-gray-700">
-          Bienvenido, <span className="font-semibold">{auth.rol}</span>.
-        </p>
+  if (auth.rol === 'ADMIN') {
+    return <AdminDashboard auth={auth} />;
+  }
 
-        {auth.rol === 'ADMIN' && (
-          <div className="mt-4 rounded-lg border p-4">
-            <h2 className="font-semibold mb-2">Administración</h2>
-            <div className="flex flex-wrap gap-3">
-              <Link
-                href="/admin/staff/new"
-                className="inline-block rounded-md bg-gray-900 text-white px-4 py-2 hover:opacity-90"
-              >
-                + Crear personal
-              </Link>
-              <Link
-                href="/admin/staff/list"
-                className="inline-block rounded-md border px-4 py-2 hover:bg-gray-50"
-              >
-                Listar personal
-              </Link>
-            </div>
-          </div>
-        )}
-      </section>
-    </main>
-  );
+  return null;
 }
