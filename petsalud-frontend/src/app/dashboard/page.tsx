@@ -160,11 +160,11 @@ function DuenoDashboard({ auth }: { auth: AuthData }) {
             </div>
             <div className="flex flex-wrap gap-3">
               <button
-                onClick={() => router.push('/facturas')}
+                onClick={() => router.push('/perfil')}
                 className="inline-flex items-center px-4 py-2 bg-white border border-gray-200 text-gray-800 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
               >
-                <Receipt className="w-4 h-4 mr-2 text-gray-600" />
-                Facturas
+                <UserCog className="w-4 h-4 mr-2 text-gray-600" />
+                Mi perfil
               </button>
               <button
                 onClick={() => router.push('/lab')}
@@ -175,8 +175,9 @@ function DuenoDashboard({ auth }: { auth: AuthData }) {
               </button>
               <button
                 onClick={() => { clearAuth(); router.push('/login'); }}
-                className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
+                className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors shadow-sm"
               >
+                <LogOut className="w-4 h-4 mr-2" />
                 Cerrar sesión
               </button>
             </div>
@@ -378,27 +379,34 @@ function DuenoDashboard({ auth }: { auth: AuthData }) {
             </div>
             <div className="flex-1">
               <h3 className="text-base font-semibold text-gray-900 mb-2">Acciones Rápidas</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <button 
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <button
                   onClick={() => router.push('/mascotas/nueva')}
                   className="flex items-center justify-center px-4 py-3 bg-white rounded-lg border border-gray-200 hover:shadow-md transition-all"
                 >
                   <Plus className="w-4 h-4 mr-2 text-blue-600" />
                   <span className="text-sm font-medium text-gray-900">Nueva Mascota</span>
                 </button>
-                <button 
+                <button
                   onClick={() => router.push('/citas/agendar')}
                   className="flex items-center justify-center px-4 py-3 bg-white rounded-lg border border-gray-200 hover:shadow-md transition-all"
                 >
                   <Calendar className="w-4 h-4 mr-2 text-green-600" />
                   <span className="text-sm font-medium text-gray-900">Agendar Cita</span>
                 </button>
-                <button 
+                <button
                   onClick={() => router.push('/citas')}
                   className="flex items-center justify-center px-4 py-3 bg-white rounded-lg border border-gray-200 hover:shadow-md transition-all"
                 >
                   <Clock className="w-4 h-4 mr-2 text-amber-600" />
                   <span className="text-sm font-medium text-gray-900">Ver Historial</span>
+                </button>
+                <button
+                  onClick={() => router.push('/perfil')}
+                  className="flex items-center justify-center px-4 py-3 bg-white rounded-lg border border-gray-200 hover:shadow-md transition-all"
+                >
+                  <UserCog className="w-4 h-4 mr-2 text-purple-600" />
+                  <span className="text-sm font-medium text-gray-900">Editar Perfil</span>
                 </button>
               </div>
             </div>
@@ -1160,6 +1168,16 @@ function RecepcionistaDashboard({ auth }: { auth: AuthData }) {
               <Receipt className="h-4 w-4" />
               Ver facturas
             </button>
+            <button
+              onClick={() => {
+                clearAuth();
+                router.push('/login');
+              }}
+              className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors shadow-sm"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Cerrar sesión
+            </button>
           </div>
         </div>
       </div>
@@ -1343,13 +1361,6 @@ function AdminDashboard({ auth }: { auth: AuthData }) {
               Ver reportes
             </button>
             <button
-              onClick={() => router.push('/facturas')}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-            >
-              <Receipt className="h-4 w-4" />
-              Facturación
-            </button>
-            <button
               onClick={() => router.push('/admin/duenos')}
               className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
             >
@@ -1357,27 +1368,13 @@ function AdminDashboard({ auth }: { auth: AuthData }) {
               Dueños
             </button>
             <button
-              onClick={() => router.push('/admin/staff/list')}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-            >
-              <List className="h-4 w-4" />
-              Personal
-            </button>
-            <button
-              onClick={() => router.push('/admin/staff/new')}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-            >
-              <UserPlus className="h-4 w-4" />
-              Crear personal
-            </button>
-            <button
               onClick={() => {
                 clearAuth();
                 router.push('/login');
               }}
-              className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-100"
+              className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors shadow-sm"
             >
-              <LogOut className="h-4 w-4" />
+              <LogOut className="w-4 h-4 mr-2" />
               Cerrar sesión
             </button>
           </div>
@@ -1408,16 +1405,46 @@ function AdminDashboard({ auth }: { auth: AuthData }) {
           </div>
         </section>
 
+        <section className="grid gap-4 sm:grid-cols-2">
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Equipo registrado</h2>
+                <p className="text-sm text-gray-500">Consulta y actualiza las cuentas activas del personal.</p>
+              </div>
+              <List className="h-5 w-5 text-gray-400" />
+            </div>
+            <button
+              onClick={() => router.push('/admin/staff/list')}
+              className="mt-4 inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              <Users className="h-4 w-4" />
+              Ver listado de personal
+            </button>
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Crear nuevo colaborador</h2>
+                <p className="text-sm text-gray-500">Da acceso a veterinarios, técnicos o recepción según el rol requerido.</p>
+              </div>
+              <UserPlus className="h-5 w-5 text-gray-400" />
+            </div>
+            <button
+              onClick={() => router.push('/admin/staff/new')}
+              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800"
+            >
+              <Plus className="h-4 w-4" />
+              Registrar personal
+            </button>
+          </div>
+        </section>
+
         <section className="grid gap-6 lg:grid-cols-2">
           <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">Cobros pendientes</h2>
-              <button
-                onClick={() => router.push('/facturas')}
-                className="text-sm font-medium text-blue-600 hover:text-blue-700"
-              >
-                Revisar
-              </button>
+              <span className="text-xs font-medium text-gray-500">Solo recepción gestiona cobros</span>
             </div>
             <div className="mt-4 space-y-3">
               {pendientes.slice(0, 5).map((f) => (

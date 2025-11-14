@@ -87,8 +87,9 @@ export default function FacturaDetailPage() {
   const [voidState, setVoidState] = useState<ActionState>(INITIAL_ACTION);
   const [metodoPago, setMetodoPago] = useState('EFECTIVO');
   const [motivoAnulacion, setMotivoAnulacion] = useState('');
+  const [notAllowed, setNotAllowed] = useState(false);
 
-  const canManage = auth?.rol === 'ADMIN' || auth?.rol === 'RECEPCIONISTA';
+  const canManage = auth?.rol === 'RECEPCIONISTA';
 
   useEffect(() => {
     const a = getAuth();
@@ -96,11 +97,19 @@ export default function FacturaDetailPage() {
       router.replace('/login');
       return;
     }
+
+    if (a.rol !== 'RECEPCIONISTA') {
+      setNotAllowed(true);
+      setAuth(a);
+      router.replace('/dashboard');
+      return;
+    }
+
     setAuth(a);
   }, [router]);
 
   useEffect(() => {
-    if (!auth?.token || !params?.id) return;
+    if (!auth?.token || auth.rol !== 'RECEPCIONISTA' || !params?.id) return;
     let mounted = true;
 
     (async () => {
@@ -180,6 +189,15 @@ export default function FacturaDetailPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Loader2 className="w-8 h-8 animate-spin text-slate-500" />
+      </div>
+    );
+  }
+
+  if (notAllowed) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-6 text-center text-sm text-gray-600">
+        <AlertCircle className="mb-4 h-10 w-10 text-amber-500" />
+        <p>Solo el equipo de recepción puede administrar facturas. Serás redirigido al panel principal.</p>
       </div>
     );
   }

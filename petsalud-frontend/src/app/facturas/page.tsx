@@ -66,6 +66,7 @@ export default function FacturasPage() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notAllowed, setNotAllowed] = useState(false);
 
   useEffect(() => {
     const a = getAuth();
@@ -73,11 +74,19 @@ export default function FacturasPage() {
       router.replace('/login');
       return;
     }
+
+    if (a.rol !== 'RECEPCIONISTA') {
+      setNotAllowed(true);
+      setAuth(a);
+      router.replace('/dashboard');
+      return;
+    }
+
     setAuth(a);
   }, [router]);
 
   useEffect(() => {
-    if (!auth?.token) return;
+    if (!auth?.token || auth.rol !== 'RECEPCIONISTA') return;
     let mounted = true;
 
     (async () => {
@@ -154,6 +163,15 @@ export default function FacturasPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Loader2 className="w-8 h-8 animate-spin text-slate-500" />
+      </div>
+    );
+  }
+
+  if (notAllowed) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-6 text-center text-sm text-gray-600">
+        <AlertCircle className="mb-4 h-10 w-10 text-amber-500" />
+        <p>Solo el personal de recepción puede gestionar facturación. Serás redirigido al panel principal.</p>
       </div>
     );
   }
