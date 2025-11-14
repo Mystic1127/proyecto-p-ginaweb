@@ -55,6 +55,8 @@ const FILTERS: Array<{ value: string; label: string }> = [
 type LabOrder = {
   id_orden: number;
   id_mascota: number;
+  id_veterinario?: number | null;
+  id_veterinario_usuario?: number | null;
   tipo_examen: string;
   observaciones?: string | null;
   estado: string;

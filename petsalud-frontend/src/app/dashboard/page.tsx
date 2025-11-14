@@ -42,6 +42,7 @@ type Cita = {
 type LabOrder = {
   id_orden: number;
   id_veterinario?: number | null;
+  id_veterinario_usuario?: number | null;
   tipo_examen: string;
   estado: 'EMITIDA' | 'MUESTRA_TOMADA' | 'RESULTADO_REGISTRADO' | 'VALIDADA' | 'ANULADA';
   creado_en: string;
@@ -464,7 +465,7 @@ function VeterinarioDashboard({ auth }: { auth: AuthData }) {
   const pendingValidation = useMemo(() => {
     const mine = labOrders.filter((order) => {
       if (order.estado !== 'RESULTADO_REGISTRADO') return false;
-      if (order.id_veterinario && order.id_veterinario !== auth.id_usuario) {
+      if (order.id_veterinario_usuario && order.id_veterinario_usuario !== auth.id_usuario) {
         return false;
       }
       return true;

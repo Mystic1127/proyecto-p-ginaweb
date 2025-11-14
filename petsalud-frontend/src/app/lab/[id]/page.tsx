@@ -20,6 +20,7 @@ type LabOrderDetail = {
   id_orden: number;
   id_mascota: number;
   id_veterinario?: number | null;
+  id_veterinario_usuario?: number | null;
   tipo_examen: string;
   observaciones?: string | null;
   estado: 'EMITIDA' | 'MUESTRA_TOMADA' | 'RESULTADO_REGISTRADO' | 'VALIDADA' | 'ANULADA';
@@ -137,7 +138,10 @@ export default function LabOrderDetailPage() {
   const isTecnico = auth?.rol === 'TECNICO';
   const isVeterinario = auth?.rol === 'VETERINARIO';
   const isAdmin = auth?.rol === 'ADMIN';
-  const canValidate = (isVeterinario || isAdmin) && order?.estado === 'RESULTADO_REGISTRADO';
+  const assignedToMe =
+    !order?.id_veterinario_usuario || order.id_veterinario_usuario === auth?.id_usuario;
+  const canValidate =
+    order?.estado === 'RESULTADO_REGISTRADO' && (isAdmin || (isVeterinario && assignedToMe));
   const canTakeSample = isTecnico || isVeterinario || isAdmin;
   const canUploadResult = (isTecnico || isAdmin) && order?.estado !== 'VALIDADA' && order?.estado !== 'ANULADA';
 

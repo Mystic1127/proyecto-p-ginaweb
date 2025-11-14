@@ -10,6 +10,19 @@ function resultReadyTemplate({ duenoNombre, mascotaNombre, idOrden }) {
   };
 }
 
+function resultReadyVetTemplate({ vetNombre, mascotaNombre, idOrden }) {
+  return {
+    subject: `Resultados cargados – Orden #${idOrden}`,
+    html: `
+      <p>Hola ${vetNombre},</p>
+      <p>El laboratorio registró los resultados de <b>${mascotaNombre}</b>.</p>
+      <p>Adjuntamos el informe preliminar en PDF para tu validación.</p>
+      <p>Ingresa al panel para revisarlo y aprobarlo.</p>
+      <p>– PetSalud</p>
+    `
+  };
+}
+
 function resultValidatedTemplate({ duenoNombre, mascotaNombre, idOrden }) {
   return {
     subject: `Informe validado – Orden #${idOrden}`,
@@ -22,4 +35,4 @@ function resultValidatedTemplate({ duenoNombre, mascotaNombre, idOrden }) {
   };
 }
 
-module.exports = { resultReadyTemplate, resultValidatedTemplate };
+module.exports = { resultReadyTemplate, resultReadyVetTemplate, resultValidatedTemplate };

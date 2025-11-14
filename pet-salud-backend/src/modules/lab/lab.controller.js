@@ -2,7 +2,7 @@ const svc = require('./lab.service');
 const { verifySignature } = require('../../utils/qr');
 const { generateOrderReportPDF, generateOrderReportPDFBuffer } = require('../../utils/report-pdf');
 const { sendMail } = require('../../utils/mailer');
-const { resultReadyTemplate, resultValidatedTemplate } = require('../../utils/email-templates');
+const { resultReadyTemplate, resultReadyVetTemplate, resultValidatedTemplate } = require('../../utils/email-templates');
 const { getTecnicoIdByUserId } = require('./lab.service');
 const factSvc = require('../facturas/facturas.service');
 
@@ -59,23 +59,47 @@ async function registrarResultado(req, res) {
 
     try {
       const data = await svc.getDataForReport(req.body.id_orden);
-      if (data?.dueno?.email) {
+      const shouldSendOwner = Boolean(data?.dueno?.email);
+      const shouldSendVet = Boolean(data?.veterinario?.email);
+
+      if (shouldSendOwner || shouldSendVet) {
         const pdfBuffer = await generateOrderReportPDFBuffer(data);
-        const t = resultReadyTemplate({
-          duenoNombre: `${data.dueno.nombres} ${data.dueno.apellidos}`,
-          mascotaNombre: data.mascota.nombre,
-          idOrden: data.orden.id_orden
-        });
-        await sendMail({
-          to: data.dueno.email,
-          subject: t.subject,
-          html: t.html,
-          attachments: [{
-            filename: `PetSalud_Orden_${data.orden.id_orden}.pdf`,
-            content: pdfBuffer,
-            contentType: 'application/pdf'
-          }]
-        });
+
+        if (shouldSendOwner) {
+          const t = resultReadyTemplate({
+            duenoNombre: `${data.dueno.nombres} ${data.dueno.apellidos}`,
+            mascotaNombre: data.mascota.nombre,
+            idOrden: data.orden.id_orden
+          });
+          await sendMail({
+            to: data.dueno.email,
+            subject: t.subject,
+            html: t.html,
+            attachments: [{
+              filename: `PetSalud_Orden_${data.orden.id_orden}.pdf`,
+              content: pdfBuffer,
+              contentType: 'application/pdf'
+            }]
+          });
+        }
+
+        if (shouldSendVet) {
+          const tVet = resultReadyVetTemplate({
+            vetNombre: data.veterinario?.nombre_usuario || 'Equipo veterinario',
+            mascotaNombre: data.mascota.nombre,
+            idOrden: data.orden.id_orden,
+          });
+          await sendMail({
+            to: data.veterinario.email,
+            subject: tVet.subject,
+            html: tVet.html,
+            attachments: [{
+              filename: `PetSalud_Orden_${data.orden.id_orden}.pdf`,
+              content: pdfBuffer,
+              contentType: 'application/pdf'
+            }]
+          });
+        }
       }
     } catch (err) {
       console.warn('No se pudo enviar email de resultados:', err.message);
@@ -115,17 +139,15 @@ async function validar(req, res) {
       const data = await svc.getDataForReport(id_orden);
       if (data?.dueno?.email) {
         const pdfBuffer = await generateOrderReportPDFBuffer(data);
-        const subject = `Informe validado – Orden #${data.orden.id_orden}`;
-        const html = `
-          <p>Hola ${data.dueno.nombres} ${data.dueno.apellidos},</p>
-          <p>El veterinario ha <b>validado</b> el informe de <b>${data.mascota.nombre}</b>.</p>
-          <p>Te adjuntamos el PDF con QR de autenticidad.</p>
-          <p>– PetSalud</p>
-        `;
+        const t = resultValidatedTemplate({
+          duenoNombre: `${data.dueno.nombres} ${data.dueno.apellidos}`,
+          mascotaNombre: data.mascota.nombre,
+          idOrden: data.orden.id_orden,
+        });
         await sendMail({
           to: data.dueno.email,
-          subject,
-          html,
+          subject: t.subject,
+          html: t.html,
           attachments: [{
             filename: `PetSalud_Orden_${data.orden.id_orden}.pdf`,
             content: pdfBuffer,
