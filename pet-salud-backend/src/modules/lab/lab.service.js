@@ -89,9 +89,11 @@ async function validarResultado({ id_orden, id_veterinario }) {
 async function detalleOrden(_idUsuario, id_orden) {
   const pool = await getPool();
   const [rows] = await pool.query(
-    `SELECT o.*, m.nombre AS nombre_mascota, m.id_mascota
+    `SELECT o.*, m.nombre AS nombre_mascota, m.id_mascota,
+            v.id_usuario AS id_veterinario_usuario
      FROM ordenes o
      JOIN mascotas m ON m.id_mascota = o.id_mascota
+     LEFT JOIN veterinarios v ON v.id_veterinario = o.id_veterinario
      WHERE o.id_orden = ?`,
     [id_orden]
   );
@@ -103,9 +105,11 @@ async function listarOrdenesDueno(idUsuario) {
   const idDueno = await getDuenoIdByUserId(idUsuario);
   const pool = await getPool();
   const [rows] = await pool.query(
-    `SELECT o.*, m.nombre AS nombre_mascota
+    `SELECT o.*, m.nombre AS nombre_mascota,
+            v.id_usuario AS id_veterinario_usuario
      FROM ordenes o
      JOIN mascotas m ON m.id_mascota = o.id_mascota
+     LEFT JOIN veterinarios v ON v.id_veterinario = o.id_veterinario
      WHERE m.id_dueno = ?
      ORDER BY o.creado_en DESC`,
     [idDueno]
@@ -116,10 +120,12 @@ async function listarOrdenesDueno(idUsuario) {
 async function listarOrdenesAdmin() {
   const pool = await getPool();
   const [rows] = await pool.query(
-    `SELECT o.*, m.nombre AS nombre_mascota, d.nombres AS dueno, d.apellidos AS dueno_ap
+    `SELECT o.*, m.nombre AS nombre_mascota, d.nombres AS dueno, d.apellidos AS dueno_ap,
+            v.id_usuario AS id_veterinario_usuario
      FROM ordenes o
      JOIN mascotas m ON m.id_mascota = o.id_mascota
      JOIN duenos  d ON d.id_dueno = (SELECT id_dueno FROM mascotas WHERE id_mascota = o.id_mascota)
+     LEFT JOIN veterinarios v ON v.id_veterinario = o.id_veterinario
      ORDER BY o.creado_en DESC`
   );
   return rows;
@@ -130,15 +136,21 @@ async function getDataForReport(id_orden) {
   const pool = await getPool();
 
   const [ordenRows] = await pool.query(
-    `SELECT 
+    `SELECT
        o.*,
        m.id_mascota, m.nombre AS mascota_nombre, m.especie, m.raza, m.edad, m.sexo,
        d.id_dueno, d.nombres AS dueno_nombres, d.apellidos AS dueno_apellidos, d.telefono,
-       u.email AS dueno_email
+       u.email AS dueno_email,
+       v.id_veterinario AS veterinario_id,
+       v.id_usuario AS veterinario_usuario_id,
+       uv.email AS veterinario_email,
+       uv.nombre_usuario AS veterinario_usuario_nombre
      FROM ordenes o
      JOIN mascotas m ON m.id_mascota = o.id_mascota
      JOIN duenos  d ON d.id_dueno  = (SELECT id_dueno FROM mascotas WHERE id_mascota = o.id_mascota)
      JOIN usuarios u ON u.id_usuario = d.id_usuario
+     LEFT JOIN veterinarios v ON v.id_veterinario = o.id_veterinario
+     LEFT JOIN usuarios uv ON uv.id_usuario = v.id_usuario
      WHERE o.id_orden = ?`,
     [id_orden]
   );
@@ -165,6 +177,15 @@ async function getDataForReport(id_orden) {
     vet_validador = vetUser.length ? vetUser[0] : null;
   }
 
+  const veterinario = orden.veterinario_id
+    ? {
+        id_veterinario: orden.veterinario_id,
+        id_usuario: orden.veterinario_usuario_id,
+        email: orden.veterinario_email,
+        nombre_usuario: orden.veterinario_usuario_nombre,
+      }
+    : null;
+
   return {
     orden: {
       id_orden: orden.id_orden,
@@ -188,6 +209,7 @@ async function getDataForReport(id_orden) {
       telefono: orden.telefono,
       email: orden.dueno_email
     },
+    veterinario,
     resultado,
     vet_validador
   };

@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getAuth, clearAuth } from '@/lib/auth';
+import { getAuth, clearAuth, type AuthData } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
-import { ChevronLeft, Calendar, AlertCircle, XCircle, User, Stethoscope, FileText, Clock, CalendarClock } from 'lucide-react';
+import { ChevronLeft, Calendar, AlertCircle, XCircle, User, Stethoscope, FileText, Clock, CalendarClock, Receipt, Loader2 } from 'lucide-react';
 
 type Cita = {
   id_cita: number;
@@ -15,6 +15,12 @@ type Cita = {
   veterinario_usuario?: string;
 };
 
+type ActionState = {
+  loading: boolean;
+  message: string | null;
+  error: string | null;
+};
+
 export default function CitaDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -22,6 +28,8 @@ export default function CitaDetailPage() {
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [auth, setAuth] = useState<AuthData | null>(null);
+  const [invoiceState, setInvoiceState] = useState<ActionState>({ loading: false, message: null, error: null });
 
   const fmt = (s: string) =>
     new Date(s.replace(' ', 'T')).toLocaleString('es-PE', {
@@ -32,14 +40,9 @@ export default function CitaDetailPage() {
       minute: '2-digit',
     });
 
-  async function load() {
-    const auth = getAuth();
-    if (!auth?.token) {
-      router.replace('/login');
-      return;
-    }
+  async function load(token: string) {
     try {
-      const data = await apiFetch<Cita>(`/citas/${params.id}`, { token: auth.token });
+      const data = await apiFetch<Cita>(`/citas/${params.id}`, { token });
       setCita(data);
     } catch (e) {
       console.error(e);
@@ -51,31 +54,56 @@ export default function CitaDetailPage() {
   }
 
   useEffect(() => {
-    load();
+    const stored = getAuth();
+    if (!stored?.token) {
+      router.replace('/login');
+      return;
+    }
+    setAuth(stored);
+  }, [router]);
+
+  useEffect(() => {
+    if (!auth?.token) return;
+    setLoading(true);
+    load(auth.token);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.id]);
+  }, [auth?.token, params.id]);
 
   async function cancelar() {
-  if (!confirm('¿Deseas cancelar esta cita?')) return;
-  const auth = getAuth();
-  if (!auth?.token) return;
+    if (!confirm('¿Deseas cancelar esta cita?')) return;
+    if (!auth?.token) return;
 
-  setPosting(true);
-  setErr(null);
-  try {
-    await apiFetch(`/citas/${params.id}/cancelar`, {
-      method: 'PATCH',
-      token: auth.token,
-      body: JSON.stringify({ nota: 'Cancelada por el dueño desde la app' }),
-    });
-    await load();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (e: any) {
-    setErr(e?.message ?? 'No se pudo cancelar la cita');
-  } finally {
-    setPosting(false);
+    setPosting(true);
+    setErr(null);
+    try {
+      await apiFetch(`/citas/${params.id}/cancelar`, {
+        method: 'PATCH',
+        token: auth.token,
+        body: JSON.stringify({ nota: 'Cancelada por el usuario desde la app' }),
+      });
+      await load(auth.token);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'No se pudo cancelar la cita';
+      setErr(message);
+    } finally {
+      setPosting(false);
+    }
   }
-}
+
+  const handleInvoice = async () => {
+    if (!auth?.token) return;
+    setInvoiceState({ loading: true, message: null, error: null });
+    try {
+      await apiFetch(`/facturas/hook/cita/${params.id}`, {
+        method: 'POST',
+        token: auth.token,
+      });
+      setInvoiceState({ loading: false, message: 'Factura generada correctamente.', error: null });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'No se pudo generar la factura';
+      setInvoiceState({ loading: false, message: null, error: message });
+    }
+  };
 
   const getStatusStyles = (estado: Cita['estado']) => {
     const map: Record<Cita['estado'], { bg: string; text: string; border: string; icon: string }> = {
@@ -119,6 +147,7 @@ export default function CitaDetailPage() {
   }
 
   const cancelable = ['PROGRAMADA', 'CONFIRMADA'].includes(cita.estado);
+  const isBillingRole = auth?.rol === 'ADMIN' || auth?.rol === 'RECEPCIONISTA';
   const statusStyle = getStatusStyles(cita.estado);
 
   return (
@@ -223,11 +252,11 @@ export default function CitaDetailPage() {
                 <p className="text-sm text-gray-700 leading-relaxed">{cita.motivo}</p>
               </div>
             )}
-          </div>
+        </div>
 
-          {!cancelable && (
-            <div className="px-6 pb-6">
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+        {!cancelable && (
+          <div className="px-6 pb-6">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                 <div className="flex items-start gap-3">
                   <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                   <div className="flex-1">
@@ -241,6 +270,34 @@ export default function CitaDetailPage() {
             </div>
           )}
         </div>
+
+        {cita.estado === 'ATENDIDA' && isBillingRole && (
+          <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-emerald-900">Generar factura</p>
+                <p className="text-xs text-emerald-700">
+                  Esta cita fue atendida. Puedes crear la factura desde aquí para registrar el cobro.
+                </p>
+              </div>
+              <button
+                onClick={handleInvoice}
+                disabled={invoiceState.loading}
+                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+              >
+                {invoiceState.loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                <Receipt className="h-4 w-4" />
+                Generar factura
+              </button>
+            </div>
+            {invoiceState.error && (
+              <p className="mt-2 text-xs text-red-600">{invoiceState.error}</p>
+            )}
+            {invoiceState.message && (
+              <p className="mt-2 text-xs text-emerald-700">{invoiceState.message}</p>
+            )}
+          </div>
+        )}
 
         <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <div className="flex items-start gap-3">
