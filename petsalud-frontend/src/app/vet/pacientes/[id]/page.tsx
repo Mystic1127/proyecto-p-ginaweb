@@ -5,7 +5,16 @@ import { useParams, useRouter } from 'next/navigation';
 import { getAuth } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
 import {
-  ChevronLeft, PawPrint, FileText, Activity, Thermometer, Weight, User, Phone, Mail
+  ChevronLeft,
+  PawPrint,
+  FileText,
+  Activity,
+  Thermometer,
+  Weight,
+  User,
+  Phone,
+  Mail,
+  Pencil,
 } from 'lucide-react';
 
 type HistorialRow = {
@@ -217,9 +226,21 @@ export default function PacienteHistorialPage() {
                         )}
                       </div>
                     </div>
-                    <button className="text-sm text-green-600 hover:text-green-700 font-medium">
-                      {selected === e.id_historial ? 'Ocultar' : 'Ver más'}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          router.push(`/vet/historial/${e.id_historial}/editar?mascota=${params.id}`);
+                        }}
+                        className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900 font-medium border border-gray-200 rounded-lg px-3 py-1.5"
+                      >
+                        <Pencil className="w-4 h-4" /> Editar
+                      </button>
+                      <button type="button" className="text-sm text-green-600 hover:text-green-700 font-medium">
+                        {selected === e.id_historial ? 'Ocultar' : 'Ver más'}
+                      </button>
+                    </div>
                   </div>
 
                   {selected === e.id_historial && (
