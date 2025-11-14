@@ -41,6 +41,7 @@ type Cita = {
 
 type LabOrder = {
   id_orden: number;
+  id_veterinario?: number | null;
   tipo_examen: string;
   estado: 'EMITIDA' | 'MUESTRA_TOMADA' | 'RESULTADO_REGISTRADO' | 'VALIDADA' | 'ANULADA';
   creado_en: string;
@@ -381,6 +382,7 @@ function DuenoDashboard({ auth }: { auth: AuthData }) {
 function VeterinarioDashboard({ auth }: { auth: AuthData }) {
   const router = useRouter();
   const [citas, setCitas] = useState<Cita[]>([]);
+  const [labOrders, setLabOrders] = useState<LabOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     programadas: 0,
@@ -392,9 +394,15 @@ function VeterinarioDashboard({ auth }: { auth: AuthData }) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const citasData = await apiFetch<Cita[]>('/citas', { token: auth.token });
+        const [citasData, labData] = await Promise.all([
+          apiFetch<Cita[]>('/citas', { token: auth.token }),
+          apiFetch<LabOrder[]>('/lab/ordenes', { token: auth.token }).catch(() => []),
+        ]);
+
         const citasArray = Array.isArray(citasData) ? citasData : [];
+        const labArray = Array.isArray(labData) ? labData : [];
         setCitas(citasArray);
+        setLabOrders(labArray);
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -452,6 +460,37 @@ function VeterinarioDashboard({ auth }: { auth: AuthData }) {
     .filter(c => ['PROGRAMADA', 'CONFIRMADA'].includes(c.estado))
     .sort((a, b) => new Date(a.fecha_hora).getTime() - new Date(b.fecha_hora).getTime())
     .slice(0, 5);
+
+  const pendingValidation = useMemo(() => {
+    const mine = labOrders.filter((order) => {
+      if (order.estado !== 'RESULTADO_REGISTRADO') return false;
+      if (order.id_veterinario && order.id_veterinario !== auth.id_usuario) {
+        return false;
+      }
+      return true;
+    });
+
+    const sorted = [...mine].sort((a, b) => new Date(b.creado_en).getTime() - new Date(a.creado_en).getTime());
+
+    return {
+      total: mine.length,
+      list: sorted.slice(0, 4),
+    };
+  }, [labOrders, auth.id_usuario]);
+
+  const formatOrderDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleString('es-PE', {
+        day: '2-digit',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return dateString;
+    }
+  };
 
   if (loading) {
     return (
@@ -591,6 +630,64 @@ function VeterinarioDashboard({ auth }: { auth: AuthData }) {
               </div>
             </button>
           </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+            <div className="flex items-center gap-3">
+              <Microscope className="w-5 h-5 text-emerald-600" />
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Órdenes esperando validación</h2>
+                <p className="text-sm text-gray-600">
+                  {pendingValidation.total > 0
+                    ? `${pendingValidation.total} análisis con resultado registrado`
+                    : 'No tienes informes pendientes de validar'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => router.push('/lab')}
+              className="inline-flex items-center px-3 py-2 text-sm font-medium text-emerald-600 hover:text-emerald-700"
+            >
+              Revisar todas →
+            </button>
+          </div>
+
+          {pendingValidation.total > 0 ? (
+            <div className="space-y-3">
+              {pendingValidation.list.map((order) => (
+                <div
+                  key={order.id_orden}
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border border-gray-200 rounded-lg px-4 py-3 hover:border-emerald-300 hover:shadow-md transition-all"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">
+                      #{order.id_orden} · {order.tipo_examen}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      Paciente: {order.nombre_mascota ?? 'Sin nombre registrado'}
+                    </p>
+                    <p className="text-xs text-gray-500">Registrado {formatOrderDate(order.creado_en)}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-600 border border-purple-200">
+                      Resultado cargado
+                    </span>
+                    <button
+                      onClick={() => router.push(`/lab/${order.id_orden}`)}
+                      className="inline-flex items-center px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700"
+                    >
+                      Validar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="border border-dashed border-emerald-200 rounded-lg px-6 py-8 text-center text-sm text-emerald-700">
+              ¡Todo listo! Los informes validados aparecerán aquí cuando el laboratorio cargue resultados.
+            </div>
+          )}
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">

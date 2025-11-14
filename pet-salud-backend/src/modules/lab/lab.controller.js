@@ -60,12 +60,22 @@ async function registrarResultado(req, res) {
     try {
       const data = await svc.getDataForReport(req.body.id_orden);
       if (data?.dueno?.email) {
+        const pdfBuffer = await generateOrderReportPDFBuffer(data);
         const t = resultReadyTemplate({
           duenoNombre: `${data.dueno.nombres} ${data.dueno.apellidos}`,
           mascotaNombre: data.mascota.nombre,
           idOrden: data.orden.id_orden
         });
-        await sendMail({ to: data.dueno.email, subject: t.subject, html: t.html });
+        await sendMail({
+          to: data.dueno.email,
+          subject: t.subject,
+          html: t.html,
+          attachments: [{
+            filename: `PetSalud_Orden_${data.orden.id_orden}.pdf`,
+            content: pdfBuffer,
+            contentType: 'application/pdf'
+          }]
+        });
       }
     } catch (err) {
       console.warn('No se pudo enviar email de resultados:', err.message);
